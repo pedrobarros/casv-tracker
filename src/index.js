@@ -26,28 +26,32 @@ main()
 async function main() {
   const { browser, page } = await openBrowser();
 
-  await login(page);
-  const currentSchedule = await getCurrentSchedule(page);
+  try {
+    await login(page);
+    const currentSchedule = await getCurrentSchedule(page);
 
-  await gotToScheduler(page);
+    await gotToScheduler(page);
 
-  let startDate = '2023-01-01';
+    let startDate = '2023-01-01';
 
-  while (true) {
-    const selectedDay = await searchAndClickOnNextAvailableDay(page, startDate, currentSchedule);
-    if (!selectedDay) break;
+    while (true) {
+      const selectedDay = await searchAndClickOnNextAvailableDay(page, startDate, currentSchedule);
+      if (!selectedDay) break;
 
-    const selectedTime = await getAvailableTime(page);
+      const selectedTime = await getAvailableTime(page);
 
-    if (selectedTime) {
-      await sendEmail(`${selectedDay} ${selectedTime}`);
-      break;
-    } else {
-      startDate = selectedDay;
+      if (selectedTime) {
+        await sendEmail(`${selectedDay} ${selectedTime}`);
+        break;
+      } else {
+        startDate = selectedDay;
+      }
     }
+  } catch (error) {
+    throw error;
+  } finally {
+    await closeBrowser(browser);
   }
-
-  await closeBrowser(browser);
 }
 
 
@@ -78,7 +82,6 @@ async function login(page) {
 async function getCurrentSchedule(page) {
   console.log("Buscando agendamento atual...");
   let text = await page.$eval('.consular-appt', el => el.textContent);
-  console.log(text);
   text = text.replace("Agendamento consular:\n", "").trim();
 
   const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -147,7 +150,7 @@ async function clickOnFirstAvailableDay(page, currentMonth, startMonth, startDay
 }
 
 async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
-  console.log(`Buscando dias disponíveis entre ${startDate} e ${currentSchedule}...`)
+  console.log(`Buscando dias disponíveis entre ${startDate} e ${endDate}...`)
 
   try {
     await page.waitForSelector("#appointments_consulate_appointment_date", {
