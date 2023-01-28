@@ -1,0 +1,19 @@
+{
+  "name": "casv-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sendgrid/mail": "^7.7.0",
+    "dayjs": "^1.11.7",
+    "dotenv": "^16.0.3",
+    "nodemailer": "^6.9.0",
+    "puppeteer": "^19.6.0"
+  }
+}
