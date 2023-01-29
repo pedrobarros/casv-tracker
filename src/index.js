@@ -3,25 +3,25 @@ require('dotenv').config();
 const puppeteer = require('puppeteer');
 const sgMail = require('@sendgrid/mail')
 const dayjs = require('dayjs');
+const fs = require('fs');
+const util = require('util');
+const appendFile = util.promisify(fs.appendFile);
 
 const { LOGIN_URL, LOGIN_EMAIL, LOGIN_PASSWORD, SENDGRID_API_KEY, SCHEDULE_URL, EMAIL_FROM, EMAIL_TO, HEADLESS } = process.env;
 
-console.log(HEADLESS);
-
-sgMail.setApiKey(SENDGRID_API_KEY)
+sgMail.setApiKey(SENDGRID_API_KEY);
 
 const now = dayjs().format();
-console.log(`############### Iniciando script - ${now} ###############`);
+log(`############### Iniciando script - ${now} ###############`);
 
 main()
   .then(() => {
-    console.log(`############### Script finalizado com sucesso ###############`);
+    log(`############### Script finalizado com sucesso ###############`);
   })
   .catch((error) => {
-    console.log(error);
-    console.log(`############### Falha ao executar o script ###############`);
+    log(error);
+    log(`############### Falha ao executar o script ###############`);
   });
-
 
 async function main() {
   const { browser, page } = await openBrowser();
@@ -56,7 +56,7 @@ async function main() {
 
 
 async function openBrowser() {
-  console.log("Iniciando browser...");
+  log("Iniciando browser...");
   const browser = await puppeteer.launch({ headless: HEADLESS === "true", args: ['--no-sandbox'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1080, height: 1024 });
@@ -66,7 +66,7 @@ async function openBrowser() {
 }
 
 async function login(page) {
-  console.log("Fazendo login...");
+  log("Fazendo login...");
   await page.goto(LOGIN_URL);
 
   await page.type('#user_email', LOGIN_EMAIL);
@@ -80,14 +80,13 @@ async function login(page) {
 }
 
 async function getCurrentSchedule(page) {
-  console.log("Buscando agendamento atual...");
+  log("Buscando agendamento atual...");
   let text = await page.$eval('.consular-appt', el => el.textContent);
   text = text.replace("Agendamento consular:\n", "").trim();
 
   const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
   const data = text.match(/^(\d+) ([^ ,]+), (\d+)/);
-  console.log(data);
   const day = String(Number(data[1])).padStart(2, "0");
   const month = data[2];
   const year = data[3];
@@ -98,7 +97,7 @@ async function getCurrentSchedule(page) {
 }
 
 async function gotToScheduler(page) {
-  console.log("Navegando para rota de agendamento...");
+  log("Navegando para rota de agendamento...");
   await page.goto(SCHEDULE_URL);
 
   await page.waitForSelector("#appointments_consulate_appointment_date");
@@ -106,7 +105,7 @@ async function gotToScheduler(page) {
 }
 
 function closeBrowser(browser) {
-  console.log("Fechando browser...");
+  log("Fechando browser...");
   return browser.close();
 }
 
@@ -140,7 +139,7 @@ async function clickOnFirstAvailableDay(page, currentMonth, startMonth, startDay
     if (currentMonth === endMonth && day >= endDay) break;
 
     firstAvailableDay = day;
-    console.log(`Selecionando dia ${currentMonth}-${day}...`);
+    log(`Selecionando dia ${currentMonth}-${day}...`);
     await days[d].click();
     await page.waitForTimeout(2000);
     break;
@@ -150,7 +149,7 @@ async function clickOnFirstAvailableDay(page, currentMonth, startMonth, startDay
 }
 
 async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
-  console.log(`Buscando dias disponíveis entre ${startDate} e ${endDate}...`)
+  log(`Buscando dias disponíveis entre ${startDate} e ${endDate}...`)
 
   try {
     await page.waitForSelector("#appointments_consulate_appointment_date", {
@@ -158,7 +157,7 @@ async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
       timeout: 3000
     });
   } catch (e) {
-    console.log("Seleção de dia não disponível no momento.");
+    log("Seleção de dia não disponível no momento.");
     return null;
   }
 
@@ -191,7 +190,7 @@ async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
   }
 
   if (!selectedDay) {
-    console.log("Nenhum dia disponível no calendário.");
+    log("Nenhum dia disponível no calendário.");
     return null;
   }
 
@@ -199,7 +198,7 @@ async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
 }
 
 async function getAvailableTime(page) {
-  console.log("Checando horários disponíveis...");
+  log("Checando horários disponíveis...");
   const timeOptions = await page.$$("#appointments_consulate_appointment_time option[value]");
   let availableTime = null;
 
@@ -219,16 +218,16 @@ async function getAvailableTime(page) {
   }
 
   if (availableTime) {
-    console.log("Horário disponível encontrado: " + availableTime);
+    log("Horário disponível encontrado: " + availableTime);
   } else {
-    console.log("Nenhum horário disponível encontrado");
+    log("Nenhum horário disponível encontrado");
   }
 
   return availableTime;
 }
 
 function sendEmail(date) {
-  console.log(`Enviando email com data ${date}...`);
+  log(`Enviando email com data ${date}...`);
 
   const email = {
     from: EMAIL_FROM,
@@ -241,6 +240,11 @@ function sendEmail(date) {
   return sgMail
     .send(email)
     .then(() => {
-      console.log("Email enviado com sucesso!");
+      log("Email enviado com sucesso!");
     })
+}
+
+function log(text) {
+  const now = dayjs().format("YYYY-MM-DD");
+  return appendFile(`logs/${now}.txt`, text + "\n");
 }
