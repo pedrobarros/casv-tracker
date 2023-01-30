@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const puppeteer = require('puppeteer');
+const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 const sgMail = require('@sendgrid/mail')
 const dayjs = require('dayjs');
 const fs = require('fs');
@@ -10,6 +11,26 @@ const appendFile = util.promisify(fs.appendFile);
 const { LOGIN_URL, LOGIN_EMAIL, LOGIN_PASSWORD, SENDGRID_API_KEY, SCHEDULE_URL, EMAIL_FROM, EMAIL_TO, HEADLESS } = process.env;
 
 sgMail.setApiKey(SENDGRID_API_KEY);
+
+// const Config = {
+//   followNewTab: true,
+//   fps: 25,
+//   ffmpeg_Path: '<path of ffmpeg_path>' || null,
+//   videoFrame: {
+//     width: 1920,
+//     height: 1080,
+//   },
+//   videoCrf: 18,
+//   videoCodec: 'libx264',
+//   videoPreset: 'ultrafast',
+//   videoBitrate: 1000,
+//   autopad: {
+//     color: 'black' | '#35A5FF',
+//   },
+//   aspectRatio: '4:3',
+// };
+
+// let recorder = null;
 
 const now = dayjs().format();
 log(`############### Iniciando script - ${now} ###############`);
@@ -62,6 +83,9 @@ async function openBrowser() {
   await page.setViewport({ width: 1080, height: 1024 });
   page.setDefaultNavigationTimeout(300_000);
 
+  // recorder = new PuppeteerScreenRecorder(page, Config);
+  // await recorder.start('./demo.mp4');
+
   return { browser, page };
 }
 
@@ -104,8 +128,9 @@ async function gotToScheduler(page) {
   await page.waitForTimeout(1000);
 }
 
-function closeBrowser(browser) {
+async function closeBrowser(browser) {
   log("Fechando browser...");
+  // await recorder.stop();
   return browser.close();
 }
 
@@ -125,7 +150,7 @@ async function getCurrentMonth(page) {
 
 async function goToNextMonth(page) {
   await page.click(".ui-datepicker-next");
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(200);
   return await getCurrentMonth(page);
 }
 
@@ -141,7 +166,6 @@ async function clickOnFirstAvailableDay(page, currentMonth, startMonth, startDay
     firstAvailableDay = day;
     log(`Selecionando dia ${currentMonth}-${day}...`);
     await days[d].click();
-    await page.waitForTimeout(2000);
     break;
   }
 
@@ -162,7 +186,7 @@ async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
   }
 
   await page.click("#appointments_consulate_appointment_date");
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(200);
 
   const start = startDate.match(/^(\d+-\d+)-(\d+)/);
   const startMonth = start[1];
@@ -199,11 +223,14 @@ async function searchAndClickOnNextAvailableDay(page, startDate, endDate) {
 
 async function getAvailableTime(page) {
   log("Checando horários disponíveis...");
+
+  await page.waitForSelector("#appointments_consulate_appointment_time", { visible: true, timeout: 3000 });
+
   const timeOptions = await page.$$("#appointments_consulate_appointment_time option[value]");
   let availableTime = null;
 
-  for (let i = timeOptions.length - 1; i >= 0; i--) {
-    const option = timeOptions[i].evaluate(el => el.value);
+  for (let i = timeOptions.length - 1; i >= timeOptions.length - 1; i--) {
+    const option = await timeOptions[i].evaluate(el => el.value);
     await page.select("#appointments_consulate_appointment_time", option);
 
     try {
