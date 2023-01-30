@@ -13,7 +13,7 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 main().then(() => { });
 
 async function main() {
-  const yesterday = dayjs().subtract(2, 'day').format('YYYY-MM-DD');
+  const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
 
   return readFile(`logs/${yesterday}.txt`, 'utf-8').then(sendEmail).catch(console.log);
 }
