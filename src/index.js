@@ -1,36 +1,17 @@
 require('dotenv').config();
 
 const puppeteer = require('puppeteer');
-const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 const sgMail = require('@sendgrid/mail')
+const twilio = require("twilio");
 const dayjs = require('dayjs');
 const fs = require('fs');
 const util = require('util');
 const appendFile = util.promisify(fs.appendFile);
 
-const { LOGIN_URL, LOGIN_EMAIL, LOGIN_PASSWORD, SENDGRID_API_KEY, SCHEDULE_URL, EMAIL_FROM, EMAIL_TO, HEADLESS } = process.env;
+const { LOGIN_URL, LOGIN_EMAIL, LOGIN_PASSWORD, SENDGRID_API_KEY, SCHEDULE_URL, EMAIL_FROM, EMAIL_TO, HEADLESS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, CALL_TO, CALL_FROM } = process.env;
 
 sgMail.setApiKey(SENDGRID_API_KEY);
-
-// const Config = {
-//   followNewTab: true,
-//   fps: 25,
-//   ffmpeg_Path: '<path of ffmpeg_path>' || null,
-//   videoFrame: {
-//     width: 1920,
-//     height: 1080,
-//   },
-//   videoCrf: 18,
-//   videoCodec: 'libx264',
-//   videoPreset: 'ultrafast',
-//   videoBitrate: 1000,
-//   autopad: {
-//     color: 'black' | '#35A5FF',
-//   },
-//   aspectRatio: '4:3',
-// };
-
-// let recorder = null;
+const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 const now = dayjs().format();
 log(`############### Iniciando script - ${now} ###############`);
@@ -62,7 +43,9 @@ async function main() {
       const selectedTime = await getAvailableTime(page);
 
       if (selectedTime) {
-        await sendEmail(`${selectedDay} ${selectedTime}`);
+        const message = `${selectedDay} ${selectedTime}`;
+        callMe(message);
+        await sendEmail(message);
         break;
       } else {
         startDate = selectedDay;
@@ -82,10 +65,6 @@ async function openBrowser() {
   const page = await browser.newPage();
   await page.setViewport({ width: 1080, height: 1024 });
   page.setDefaultNavigationTimeout(300_000);
-
-  // recorder = new PuppeteerScreenRecorder(page, Config);
-  // await recorder.start('./demo.mp4');
-
   return { browser, page };
 }
 
@@ -130,7 +109,6 @@ async function gotToScheduler(page) {
 
 async function closeBrowser(browser) {
   log("Fechando browser...");
-  // await recorder.stop();
   return browser.close();
 }
 
@@ -271,7 +249,18 @@ function sendEmail(date) {
     })
 }
 
+function callMe(date) {
+  log("Ligando para mim...");
+  twilioClient.calls.create({
+    twiml: `<Response><Say voice="alice" language="pt-BR" loop="3">Data disponível ${date}</Say></Response>`,
+    to: CALL_TO,
+    from: CALL_FROM,
+  })
+    .then(call => log(`Ligação efetuada: ${call.sid}`));
+}
+
 function log(text) {
+  console.log(text);
   const now = dayjs().format("YYYY-MM-DD");
   return appendFile(`logs/${now}.txt`, text + "\n");
 }
